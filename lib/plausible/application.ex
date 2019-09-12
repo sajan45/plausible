@@ -2,11 +2,13 @@ defmodule Plausible.Application do
   @moduledoc false
 
   use Application
+  import Supervisor.Spec
 
   def start(_type, _args) do
     children = [
       Plausible.Repo,
-      PlausibleWeb.Endpoint
+      PlausibleWeb.Endpoint,
+      worker(Plausible.Goal.Cache, [])
     ]
 
     opts = [strategy: :one_for_one, name: Plausible.Supervisor]
@@ -17,6 +19,7 @@ defmodule Plausible.Application do
       &Appsignal.Ecto.handle_event/4,
       nil
     )
+
     Supervisor.start_link(children, opts)
   end
 

@@ -53,4 +53,15 @@ defmodule Plausible.Factory do
       expires: Timex.now() |> Timex.shift(days: 1)
     }
   end
+
+  def goal_factory do
+    domain = sequence(:goal_domain, &"example-#{&1}.com")
+    name = sequence(:goal_name, &"goal-#{&1}")
+
+    %Plausible.Goal{
+      domain: domain,
+      name: name,
+      page_url: "/page"
+    }
+  end
 end

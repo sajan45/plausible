@@ -151,6 +151,23 @@ defmodule Plausible.Stats do
     end)
   end
 
+  def goal_conversions(site, query, limit \\ 5) do
+    {:ok, first} = NaiveDateTime.new(query.date_range.first, ~T[00:00:00])
+    first_datetime = Timex.to_datetime(first, site.timezone)
+
+    {:ok, last} = NaiveDateTime.new(query.date_range.last |> Timex.shift(days: 1), ~T[00:00:00])
+    last_datetime = Timex.to_datetime(last, site.timezone)
+
+    Repo.all(from c in Plausible.Goal.Conversion,
+      where: c.domain == ^site.domain,
+      where: c.time >= ^first_datetime and c.time < ^last_datetime,
+      select: {c.goal_name, count(c)},
+      group_by: c.goal_name,
+      order_by: [desc: count(c)],
+      limit: ^limit
+    )
+  end
+
   def countries(site, query, limit \\ 5) do
     Repo.all(from p in base_query(site, query),
       select: {p.country_code, count(p.country_code)},

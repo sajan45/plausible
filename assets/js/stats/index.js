@@ -124,6 +124,13 @@ if (domainEl) {
         document.getElementById('browsers-stats').innerHTML = res
         router.updateLinkHandlers()
       })
+
+    fetch(`/stats/${domain}/conversions${location.search}`)
+      .then(res => res.text())
+      .then((res) => {
+        document.getElementById('conversion-stats').innerHTML = res
+        router.updateLinkHandlers()
+      })
   })
 
   setInterval(function() {

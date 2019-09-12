@@ -48,6 +48,22 @@ defmodule PlausibleWeb.Api.ExternalControllerTest do
       assert pageview.hostname == "example.com"
     end
 
+    test "trailing slash is stripped from pathname", %{conn: conn} do
+      params = %{
+        url: "http://www.example.com/page/",
+        uid: UUID.uuid4(),
+        new_visitor: true
+      }
+
+      conn
+      |> put_req_header("content-type", "text/plain")
+      |> post("/api/page", Jason.encode!(params))
+
+      pageview = Repo.one(Plausible.Pageview)
+
+      assert pageview.pathname == "/page"
+    end
+
     test "bots and crawlers are ignored", %{conn: conn} do
       params = %{
         url: "http://www.example.com/",
@@ -265,42 +281,63 @@ defmodule PlausibleWeb.Api.ExternalControllerTest do
       assert is_nil(pageview.referrer_source)
     end
 
+    test "screen size is calculated from screen_width", %{conn: conn} do
+      params = %{
+        url: "http://gigride.live/",
+        new_visitor: true,
+        screen_width: 480,
+        uid: UUID.uuid4()
+      }
+
+      conn = conn
+             |> put_req_header("content-type", "text/plain")
+             |> put_req_header("user-agent", @user_agent)
+             |> post("/api/page", Jason.encode!(params))
+
+      pageview = Repo.one(Plausible.Pageview)
+
+      assert response(conn, 202) == ""
+      assert pageview.screen_size == "Mobile"
+    end
+
+    test "screen size is nil if screen_width is missing", %{conn: conn} do
+      params = %{
+        url: "http://gigride.live/",
+        new_visitor: true,
+        uid: UUID.uuid4()
+      }
+
+      conn = conn
+             |> put_req_header("content-type", "text/plain")
+             |> put_req_header("user-agent", @user_agent)
+             |> post("/api/page", Jason.encode!(params))
+
+      pageview = Repo.one(Plausible.Pageview)
+
+      assert response(conn, 202) == ""
+      assert pageview.screen_size == nil
+    end
   end
 
-  test "screen size is calculated from screen_width", %{conn: conn} do
-    params = %{
-      url: "http://gigride.live/",
-      new_visitor: true,
-      screen_width: 480,
-      uid: UUID.uuid4()
-    }
+  describe "POST /page detecting conversions" do
+    test "creates a conversion for pageview", %{conn: conn} do
+      goal = insert(:goal, domain: "gigride.live", page_url: "/success", name: "Visit /success")
+      Plausible.Goal.Cache.goal_created(goal)
 
-    conn = conn
-           |> put_req_header("content-type", "text/plain")
-           |> put_req_header("user-agent", @user_agent)
-           |> post("/api/page", Jason.encode!(params))
+      params = %{
+        url: "http://gigride.live/success",
+        new_visitor: true,
+        uid: UUID.uuid4()
+      }
 
-    pageview = Repo.one(Plausible.Pageview)
+      conn
+      |> put_req_header("content-type", "text/plain")
+      |> put_req_header("user-agent", @user_agent)
+      |> post("/api/page", Jason.encode!(params))
 
-    assert response(conn, 202) == ""
-    assert pageview.screen_size == "Mobile"
-  end
+      conversion = Repo.one(Plausible.Goal.Conversion)
 
-  test "screen size is nil if screen_width is missing", %{conn: conn} do
-    params = %{
-      url: "http://gigride.live/",
-      new_visitor: true,
-      uid: UUID.uuid4()
-    }
-
-    conn = conn
-           |> put_req_header("content-type", "text/plain")
-           |> put_req_header("user-agent", @user_agent)
-           |> post("/api/page", Jason.encode!(params))
-
-    pageview = Repo.one(Plausible.Pageview)
-
-    assert response(conn, 202) == ""
-    assert pageview.screen_size == nil
+      assert conversion.goal_name == "Visit /success"
+    end
   end
 end

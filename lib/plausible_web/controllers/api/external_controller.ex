@@ -10,7 +10,10 @@ defmodule PlausibleWeb.Api.ExternalController do
     params = parse_body(conn)
 
     case create_pageview(conn, params) do
-      {:ok, _pageview} ->
+      {:ok, nil} ->
+        conn |> send_resp(202, "")
+      {:ok, pageview} ->
+        create_conversion(pageview)
         conn |> send_resp(202, "")
       {:error, changeset} ->
         request = Sentry.Plug.build_request_interface_data(conn, [])
@@ -24,6 +27,22 @@ defmodule PlausibleWeb.Api.ExternalController do
     request = Sentry.Plug.build_request_interface_data(conn, [])
     Sentry.capture_message("JS snippet error", request: request)
     send_resp(conn, 200, "")
+  end
+
+  defp create_conversion(pageview) do
+    alias Plausible.Goal.Cache
+
+    goal = Cache.find_goal(:pageview, pageview.hostname, pageview.pathname)
+
+    if goal do
+      conversion_attrs = %{
+        domain: pageview.hostname,
+        goal_name: goal,
+        time: Timex.now()
+      }
+      Plausible.Goal.Conversion.changeset(%Plausible.Goal.Conversion{}, conversion_attrs)
+        |> Plausible.Repo.insert!
+    end
   end
 
   defp create_pageview(conn, params) do
@@ -44,7 +63,7 @@ defmodule PlausibleWeb.Api.ExternalController do
 
       pageview_attrs = %{
         hostname: strip_www(uri.host),
-        pathname: uri.path,
+        pathname: strip_trailing_slash(uri.path),
         user_agent: user_agent,
         new_visitor: params["new_visitor"],
         screen_width: params["screen_width"],
@@ -61,6 +80,11 @@ defmodule PlausibleWeb.Api.ExternalController do
       Plausible.Pageview.changeset(%Plausible.Pageview{}, pageview_attrs)
         |> Plausible.Repo.insert
     end
+  end
+
+  defp strip_trailing_slash("/"), do: "/"
+  defp strip_trailing_slash(pathname) do
+    String.replace_suffix(pathname, "/", "")
   end
 
   defp calculate_screen_size(nil) , do: nil

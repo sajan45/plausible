@@ -102,6 +102,7 @@ defmodule PlausibleWeb.Router do
     get "/stats/:domain/screen-sizes", StatsController, :screen_sizes_preview
     get "/stats/:domain/operating-systems", StatsController, :operating_systems_preview
     get "/stats/:domain/browsers", StatsController, :browsers_preview
+    get "/stats/:domain/conversions", StatsController, :conversions_preview
     get "/stats/:domain/main-graph", StatsController, :main_graph
     get "/:website/*path", StatsController, :stats
   end

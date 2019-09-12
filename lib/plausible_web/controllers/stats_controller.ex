@@ -310,6 +310,20 @@ defmodule PlausibleWeb.StatsController do
     end
   end
 
+  def conversions_preview(conn, %{"domain" => domain}) do
+    site = Repo.get_by(Plausible.Site, domain: domain)
+
+    if site && current_user_can_access?(conn, site) do
+      {conn, params} = fetch_period(conn, site)
+      query = Stats.Query.from(site.timezone, params)
+      goals = Stats.goal_conversions(site, query)
+
+      render(conn, "conversions_preview.html", layout: false, query: query, site: site, goals: goals)
+    else
+      render_error(conn, 404)
+    end
+  end
+
   defp current_user_can_access?(_conn, %Plausible.Site{public: true}) do
     true
   end
@@ -336,5 +350,4 @@ defmodule PlausibleWeb.StatsController do
         end
     end
   end
-
 end
