@@ -38,6 +38,7 @@ defmodule PlausibleWeb.Api.ExternalController do
       conversion_attrs = %{
         domain: pageview.hostname,
         goal_name: goal,
+        user_id: pageview.user_id,
         time: Timex.now()
       }
       Plausible.Goal.Conversion.changeset(%Plausible.Goal.Conversion{}, conversion_attrs)

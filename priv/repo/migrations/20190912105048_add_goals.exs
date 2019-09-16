@@ -13,9 +13,10 @@ defmodule Plausible.Repo.Migrations.AddGoals do
 
     create unique_index(:goals, [:domain, :name])
 
-    create table(:conversions, primary_key: false) do
-      add :domain, :text, null: false, primary_key: true
-      add :goal_name, :text, null: false, primary_key: true
+    create table(:conversions) do
+      add :domain, :text, null: false
+      add :goal_name, :text, null: false
+      add :user_id, :uuid, null: false
       add :referrer_source, :text
       add :entry_page, :text
       add :time, :naive_datetime, null: false
