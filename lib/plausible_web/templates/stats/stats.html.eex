@@ -85,7 +85,7 @@
     <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="pages-stats">
       <div class="loading my-32 mx-auto"><div></div></div>
     </div>
-    <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="conversion-stats">
+    <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="countries-stats">
       <div class="loading my-32 mx-auto"><div></div></div>
     </div>
   </div>
@@ -97,14 +97,16 @@
     <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="operating-systems-stats">
       <div class="loading my-32 mx-auto"><div></div></div>
     </div>
-    <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="countries-stats">
-      <div class="loading my-32 mx-auto"><div></div></div>
-    </div>
-  </div>
-
-  <div class="w-full block md:flex items-start justify-between mt-6">
     <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="browsers-stats">
       <div class="loading my-32 mx-auto"><div></div></div>
     </div>
   </div>
+
+  <%= if @has_goals do %>
+    <div class="w-full block md:flex items-start justify-end mt-6">
+      <div class="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" id="conversion-stats">
+        <div class="loading my-32 mx-auto"><div></div></div>
+      </div>
+    </div>
+  <% end %>
 </div>

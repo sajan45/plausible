@@ -4,12 +4,17 @@
 </div>
 
 <div class="mt-8">
-  <%= for {key, count} <- @goals do %>
-    <div class="flex items-center justify-between my-2">
-      <span class="truncate" style="max-width: 80%;"><%= key %></span>
-      <span title="<%= count %>"><%= large_number_format(count) %></span>
-    </div>
-    <%= bar(count, @goals, :indigo) %>
+  <%= if Enum.count(@goals) > 0 do %>
+    <%= for {key, count} <- @goals do %>
+      <div class="flex items-center justify-between my-2">
+        <span class="truncate" style="max-width: 80%;"><%= key %></span>
+        <span title="<%= count %>"><%= large_number_format(count) %></span>
+      </div>
+      <%= bar(count, @goals, :indigo) %>
+    <% end %>
+  <% else %>
+    <div class="text-center">No conversions for this period</div>
+    <div class="text-center mt-2"><%= link("Manage goals", to: "/#{@site.domain}/goals", class: "text-indigo") %></div>
   <% end %>
 </div>
 <%= if Enum.count(@goals) >= 5 do %>

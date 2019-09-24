@@ -125,19 +125,20 @@ if (domainEl) {
         router.updateLinkHandlers()
       })
 
-    fetch(`/stats/${domain}/conversions${location.search}`)
-      .then(res => res.text())
-      .then((res) => {
-        document.getElementById('conversion-stats').innerHTML = res
-        router.updateLinkHandlers()
-      })
+    if (document.getElementById('conversion-stats')) {
+      fetch(`/stats/${domain}/conversions${location.search}`)
+        .then(res => res.text())
+        .then((res) => {
+          document.getElementById('conversion-stats').innerHTML = res
+          router.updateLinkHandlers()
+        })
+    }
   })
 
   setInterval(function() {
     fetch(`/api/${domain}/current-visitors`)
       .then(res => res.json())
       .then((res) => {
-        console.log(res)
         document.getElementById('current-visitors').innerHTML = res
       })
   }, 10000)
