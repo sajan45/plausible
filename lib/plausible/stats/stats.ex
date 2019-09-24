@@ -161,9 +161,9 @@ defmodule Plausible.Stats do
     Repo.all(from c in Plausible.Goal.Conversion,
       where: c.domain == ^site.domain,
       where: c.time >= ^first_datetime and c.time < ^last_datetime,
-      select: {c.goal_name, count(c)},
+      select: {c.goal_name, count(c.user_id, :distinct)},
       group_by: c.goal_name,
-      order_by: [desc: count(c)],
+      order_by: [desc: count(c.user_id, :distinct)],
       limit: ^limit
     )
   end

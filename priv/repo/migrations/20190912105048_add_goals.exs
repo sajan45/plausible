@@ -6,7 +6,7 @@ defmodule Plausible.Repo.Migrations.AddGoals do
       add :domain, :text, null: false, primary_key: true
       add :name, :text, null: false, primary_key: true
       add :event_name, :text
-      add :page_url, :text
+      add :page_path, :text
 
       timestamps()
     end

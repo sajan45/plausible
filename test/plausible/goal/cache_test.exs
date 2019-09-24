@@ -1,5 +1,5 @@
 defmodule Plausible.Goal.CacheTest do
-  use Plausible.DataCase
+  use Plausible.DataCase, async: false
   alias Plausible.Goal.Cache
 
   setup do
@@ -16,7 +16,7 @@ defmodule Plausible.Goal.CacheTest do
       goal = build(:goal,
         domain: "example.com",
         name: "Visit /success",
-        page_url: "/success"
+        page_path: "/success"
       )
 
       Cache.goal_created(goal)

@@ -33,7 +33,7 @@ defmodule Plausible.Goal.Cache do
   end
 
   def goal_created(goal) do
-    key = {:pageview, goal.domain, goal.page_url}
+    key = {:pageview, goal.domain, goal.page_path}
     :ets.insert(:goal_cache, {key, goal.name})
   end
 end

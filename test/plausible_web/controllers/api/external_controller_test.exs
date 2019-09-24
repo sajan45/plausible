@@ -305,7 +305,7 @@ defmodule PlausibleWeb.Api.ExternalControllerTest do
 
   describe "POST /page detecting conversions" do
     test "creates a conversion for pageview", %{conn: conn} do
-      goal = insert(:goal, domain: "gigride.live", page_url: "/success", name: "Visit /success")
+      goal = insert(:goal, domain: "gigride.live", page_path: "/success", name: "Visit /success")
       Plausible.Goal.Cache.goal_created(goal)
 
       params = %{
