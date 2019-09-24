@@ -227,22 +227,6 @@ defmodule PlausibleWeb.Api.ExternalControllerTest do
       assert pageview.referrer_source == "traffic-source"
     end
 
-    test "ignores pageviews from a user blacklist", %{conn: conn} do
-      params = %{
-        url: "http://gigride.live/",
-        referrer: "https://blog.gigride.live",
-        new_visitor: false,
-        uid: "e8150466-7ddb-4771-bcf5-7c58f232e8a6"
-      }
-
-      conn
-      |> put_req_header("content-type", "text/plain")
-      |> put_req_header("user-agent", @user_agent)
-      |> post("/api/page", Jason.encode!(params))
-
-      assert Repo.aggregate(Plausible.Pageview, :count, :id) == 0
-    end
-
     test "if it's an :unknown referrer, just the domain is used", %{conn: conn} do
       params = %{
         url: "http://gigride.live/",

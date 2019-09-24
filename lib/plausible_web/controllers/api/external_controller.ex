@@ -2,10 +2,6 @@ defmodule PlausibleWeb.Api.ExternalController do
   use PlausibleWeb, :controller
   require Logger
 
-  @blacklist_user_ids [
-    "e8150466-7ddb-4771-bcf5-7c58f232e8a6"
-  ]
-
   def page(conn, _params) do
     params = parse_body(conn)
 
@@ -50,7 +46,7 @@ defmodule PlausibleWeb.Api.ExternalController do
     uri = URI.parse(params["url"])
     country_code = Plug.Conn.get_req_header(conn, "cf-ipcountry") |> List.first
     user_agent = Plug.Conn.get_req_header(conn, "user-agent") |> List.first
-    if UAInspector.bot?(user_agent) || params["uid"] in @blacklist_user_ids do
+    if UAInspector.bot?(user_agent) do
       {:ok, nil}
     else
       ua = if user_agent do

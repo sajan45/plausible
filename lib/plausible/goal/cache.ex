@@ -27,7 +27,7 @@ defmodule Plausible.Goal.Cache do
     case :ets.lookup(:goal_cache, {:pageview, domain, pathname}) do
       [] ->
         nil
-      [{key, val}] ->
+      [{_key, val}] ->
         val
     end
   end
