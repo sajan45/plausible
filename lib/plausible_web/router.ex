@@ -97,6 +97,7 @@ defmodule PlausibleWeb.Router do
     get "/:website/goals", SiteController, :goals
     get "/:website/goals/new", SiteController, :new_goal
     post "/:website/goals", SiteController, :create_goal
+    delete "/:website/goals/:name", SiteController, :delete_goal
     delete "/:website", SiteController, :delete_site
 
     get "/stats/:domain/referrers", StatsController, :referrers_preview

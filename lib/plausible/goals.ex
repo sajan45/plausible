@@ -23,6 +23,13 @@ defmodule Plausible.Goals do
     )
   end
 
+  def delete(site, goal_name) do
+    Repo.one(
+      from g in Goal,
+      where: g.domain == ^site.domain and g.name == ^goal_name
+    ) |> Repo.delete!
+  end
+
   defp add_goal_to_cache(_, %{goal: goal}) do
     Goal.Cache.goal_created(goal)
     {:ok, goal}

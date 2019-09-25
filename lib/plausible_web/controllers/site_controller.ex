@@ -68,6 +68,14 @@ defmodule PlausibleWeb.SiteController do
     |> redirect(to: "/#{website}/goals")
   end
 
+  def delete_goal(conn, %{"website" => website, "name" => goal_name}) do
+    site = Sites.get_for_user!(conn.assigns[:current_user].id, website)
+    Plausible.Goals.delete(site, goal_name)
+
+    conn
+    |> redirect(to: "/#{website}/goals")
+  end
+
   def settings(conn, %{"website" => website}) do
     site = Sites.get_for_user!(conn.assigns[:current_user].id, website)
            |> Repo.preload(:google_auth)
