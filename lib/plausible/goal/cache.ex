@@ -23,8 +23,8 @@ defmodule Plausible.Goal.Cache do
     {:ok, opts}
   end
 
-  def find_goal(:pageview, domain, pathname) do
-    case :ets.lookup(:goal_cache, {:pageview, domain, pathname}) do
+  def find_goal(goal_type, domain, pathname) do
+    case :ets.lookup(:goal_cache, {goal_type, domain, pathname}) do
       [] ->
         nil
       [{_key, val}] ->
@@ -32,8 +32,13 @@ defmodule Plausible.Goal.Cache do
     end
   end
 
-  def goal_created(goal) do
-    key = {:pageview, goal.domain, goal.page_path}
+  def goal_created(%{page_path: page_path} = goal) when is_binary(page_path) do
+    key = {:pageview, goal.domain, page_path}
+    :ets.insert(:goal_cache, {key, goal.name})
+  end
+
+  def goal_created(%{event_name: event} = goal) when is_binary(event) do
+    key = {:event, goal.domain, event}
     :ets.insert(:goal_cache, {key, goal.name})
   end
 end

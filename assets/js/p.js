@@ -70,6 +70,28 @@
       }
     }
 
+    function trigger(eventName, options) {
+      var request = new XMLHttpRequest();
+      request.open('POST', plausibleHost + '/api/event', true);
+      request.setRequestHeader('Content-Type', 'text/plain');
+
+      var uid = getCookie('nm_uid')
+
+      request.send(JSON.stringify({
+        url: getUrl(),
+        name: eventName,
+        uid: uid,
+      }));
+
+      if (options.callback) {
+        request.onreadystatechange = function() {
+          if (request.readyState == XMLHttpRequest.DONE) {
+            options.callback()
+          }
+        }
+      }
+    }
+
     function trackPushState() {
       var his = window.history
       if (his.pushState) {
@@ -83,6 +105,7 @@
 
     const functions = {
       page: page,
+      trigger: trigger,
       trackPushState: trackPushState
     }
 
@@ -98,6 +121,6 @@
       window.plausible.apply(this, queue[i])
     }
   } catch (e) {
-    new Image().src = plausibleHost + '/api/error?message=' +  encodeURIComponent(e.message);
+    new Image().src = plausibleHost + '/api/error?message=' + encodeURIComponent(e.message);
   }
 })(window, BASE_URL);

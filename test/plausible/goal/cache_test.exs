@@ -12,7 +12,7 @@ defmodule Plausible.Goal.CacheTest do
       assert Cache.find_goal(:pageview, "example.com", "/success") == nil
     end
 
-    test "caches the goal" do
+    test "caches goal w/ pageview" do
       goal = build(:goal,
         domain: "example.com",
         name: "Visit /success",
@@ -22,6 +22,18 @@ defmodule Plausible.Goal.CacheTest do
       Cache.goal_created(goal)
 
       assert Cache.find_goal(:pageview, "example.com", "/success") == "Visit /success"
+    end
+
+    test "caches goal for custom event" do
+      goal = build(:goal,
+        domain: "example.com",
+        name: "Signup",
+        event_name: "Signup"
+      )
+
+      Cache.goal_created(goal)
+
+      assert Cache.find_goal(:event, "example.com", "Signup") == "Signup"
     end
   end
 end

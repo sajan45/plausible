@@ -19,6 +19,29 @@ defmodule PlausibleWeb.Api.ExternalController do
     end
   end
 
+  def event(conn, _params) do
+    alias Plausible.Goal.Cache
+
+    params = parse_body(conn)
+    domain = URI.parse(params["url"]).host
+    goal = Cache.find_goal(:event, domain, params["name"])
+
+    if goal do
+      conversion_attrs = %{
+        domain: domain,
+        goal_name: goal,
+        user_id: params["uid"],
+        time: Timex.now()
+      }
+
+      Plausible.Goal.Conversion.changeset(%Plausible.Goal.Conversion{}, conversion_attrs)
+        |> Plausible.Repo.insert!
+      conn |> send_resp(202, "")
+    else
+      conn |> send_resp(404, "")
+    end
+  end
+
   def error(conn, _params) do
     request = Sentry.Plug.build_request_interface_data(conn, [])
     Sentry.capture_message("JS snippet error", request: request)

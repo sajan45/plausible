@@ -30,6 +30,7 @@ defmodule PlausibleWeb.Router do
     pipe_through :api
 
     post "/page", Api.ExternalController, :page
+    post "/event", Api.ExternalController, :event
     get "/error", Api.ExternalController, :error
 
     post "/paddle/webhook", Api.PaddleController, :webhook

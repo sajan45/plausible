@@ -60,8 +60,7 @@ defmodule Plausible.Factory do
 
     %Plausible.Goal{
       domain: domain,
-      name: name,
-      page_path: "/page"
+      name: name
     }
   end
 end

@@ -4,7 +4,7 @@ defmodule Plausible.Goals do
 
   def create(site, params) do
     params = Map.merge(params, %{
-      "name" => "Visit " <> params["page_path"],
+      "name" => name_for(params),
       "domain" => site.domain
     })
 
@@ -29,6 +29,16 @@ defmodule Plausible.Goals do
       where: g.domain == ^site.domain and g.name == ^goal_name
     ) |> Repo.delete!
   end
+
+  defp name_for(%{"event_name" => name}) when name != "" do
+    name
+  end
+
+  defp name_for(%{"page_path" => path}) when path != "" do
+    "Visit #{path}"
+  end
+
+  defp name_for(_), do: nil
 
   defp add_goal_to_cache(_, %{goal: goal}) do
     Goal.Cache.goal_created(goal)

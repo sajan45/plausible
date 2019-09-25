@@ -324,4 +324,27 @@ defmodule PlausibleWeb.Api.ExternalControllerTest do
       assert conversion.goal_name == "Visit /success"
     end
   end
+
+  describe "POST /event" do
+    test "creates a conversion if configured", %{conn: conn} do
+      goal = insert(:goal, domain: "gigride.live", event_name: "Signup", name: "Signup")
+      Plausible.Goal.Cache.goal_created(goal)
+
+      params = %{
+        url: "http://gigride.live/register",
+        uid: UUID.uuid4(),
+        name: "Signup"
+      }
+
+      conn
+      |> put_req_header("content-type", "text/plain")
+      |> put_req_header("user-agent", @user_agent)
+      |> post("/api/event", Jason.encode!(params))
+
+      conversion = Repo.one(Plausible.Goal.Conversion)
+
+      assert conversion.goal_name == "Signup"
+    end
+  end
+
 end
