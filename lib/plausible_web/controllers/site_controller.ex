@@ -65,6 +65,7 @@ defmodule PlausibleWeb.SiteController do
     Plausible.Goals.create(site, goal)
 
     conn
+    |> put_flash(:success, "Goal created succesfully")
     |> redirect(to: "/#{website}/goals")
   end
 
@@ -73,6 +74,7 @@ defmodule PlausibleWeb.SiteController do
     Plausible.Goals.delete(site, goal_name)
 
     conn
+    |> put_flash(:success, "Goal deleted succesfully")
     |> redirect(to: "/#{website}/goals")
   end
 
