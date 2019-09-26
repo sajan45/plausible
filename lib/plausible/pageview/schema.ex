@@ -5,18 +5,21 @@ defmodule Plausible.Pageview do
   schema "pageviews" do
     field :hostname, :string
     field :pathname, :string
-    field :referrer, :string
+    field :new_visitor, :boolean
+    field :user_id, :binary_id
+
+    # raw
     field :raw_referrer, :string
     field :user_agent, :string
     field :screen_width, :integer
-    field :screen_size, :string
-    field :new_visitor, :boolean
-    field :user_id, :binary_id
-    field :country_code, :string
 
+    # calculated user fields
+    field :referrer_source, :string
+    field :referrer, :string
+    field :screen_size, :string
+    field :country_code, :string
     field :operating_system, :string
     field :browser, :string
-    field :referrer_source, :string
 
     timestamps()
   end

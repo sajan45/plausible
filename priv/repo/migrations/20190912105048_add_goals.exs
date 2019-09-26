@@ -17,8 +17,6 @@ defmodule Plausible.Repo.Migrations.AddGoals do
       add :domain, :text, null: false
       add :goal_name, :text, null: false
       add :user_id, :uuid, null: false
-      add :referrer_source, :text
-      add :entry_page, :text
       add :time, :naive_datetime, null: false
     end
   end
