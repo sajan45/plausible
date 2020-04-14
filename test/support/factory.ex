@@ -7,7 +7,8 @@ defmodule Plausible.Factory do
     user = %Plausible.Auth.User{
       name: "Jane Smith",
       email: sequence(:email, &"email-#{&1}@example.com"),
-      password_hash: Plausible.Auth.Password.hash(pw)
+      password_hash: Plausible.Auth.Password.hash(pw),
+      trial_expiry_date: Timex.today() |> Timex.shift(days: 30)
     }
 
     merge_attributes(user, attrs)
@@ -19,6 +20,19 @@ defmodule Plausible.Factory do
     %Plausible.Site{
       domain: domain,
       timezone: "UTC",
+    }
+  end
+
+  def session_factory do
+    hostname = sequence(:domain, &"example-#{&1}.com")
+
+    %Plausible.FingerprintSession{
+      hostname: hostname,
+      domain: hostname,
+      entry_page: "/",
+      fingerprint: UUID.uuid4(),
+      start: Timex.now(),
+      is_bounce: false
     }
   end
 
@@ -36,9 +50,9 @@ defmodule Plausible.Factory do
 
     %Plausible.Event{
       hostname: hostname,
+      domain: hostname,
       pathname: "/",
-      new_visitor: true,
-      user_id: UUID.uuid4(),
+      fingerprint: UUID.uuid4()
     }
   end
 
@@ -64,6 +78,37 @@ defmodule Plausible.Factory do
       refresh_token: "123",
       access_token: "123",
       expires: Timex.now() |> Timex.shift(days: 1)
+    }
+  end
+
+  def custom_domain_factory do
+    %Plausible.Site.CustomDomain{
+      domain: sequence(:custom_domain, &"domain-#{&1}.com")
+    }
+  end
+
+  def tweet_factory do
+    %Plausible.Twitter.Tweet{
+      tweet_id: UUID.uuid4(),
+      author_handle: "author-handle",
+      author_name: "author-name",
+      author_image: "pic.twitter.com/author.png",
+      text: "tweet-text",
+      created: Timex.now()
+    }
+  end
+
+  def weekly_report_factory do
+    %Plausible.Site.WeeklyReport{}
+  end
+
+  def monthly_report_factory do
+    %Plausible.Site.MonthlyReport{}
+  end
+
+  def shared_link_factory do
+    %Plausible.Site.SharedLink{
+      slug: Nanoid.generate()
     }
   end
 end

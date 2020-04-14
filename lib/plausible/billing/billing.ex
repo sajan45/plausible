@@ -76,19 +76,17 @@ defmodule Plausible.Billing do
   end
 
   def needs_to_upgrade?(user) do
-    if Timex.before?(trial_end_date(user), Timex.today()) do
+    if Timex.before?(user.trial_expiry_date, Timex.today()) do
       !active_subscription_for(user.id)
     else
       false
     end
   end
 
-  def trial_days_left(user) do
-    30 - Timex.diff(Timex.today, user.inserted_at, :days)
-  end
+  def on_trial?(user), do: trial_days_left(user) >= 0
 
-  def trial_end_date(user) do
-    Timex.shift(user.inserted_at, days: 30) |> NaiveDateTime.to_date
+  def trial_days_left(user) do
+    Timex.diff(user.trial_expiry_date, Timex.today(), :days)
   end
 
   def usage(user) do
@@ -101,7 +99,7 @@ defmodule Plausible.Billing do
   defp site_usage(site) do
     Repo.aggregate(from(
       e in Plausible.Event,
-      where: e.hostname == ^site.domain,
+      where: e.domain == ^site.domain,
       where: e.timestamp >= fragment("now() - '30 days'::interval")
     ), :count, :id)
   end

@@ -4,52 +4,70 @@ import { withRouter } from 'react-router-dom'
 import Modal from './modal'
 import * as api from '../../api'
 import numberFormatter from '../../number-formatter'
-import Bar from '../bar'
 import {parseQuery} from '../../query'
 
 class PagesModal extends React.Component {
   constructor(props) {
     super(props)
-    this.state = {loading: true}
+    this.state = {
+      loading: true,
+      query: parseQuery(props.location.search, props.site)
+    }
   }
 
   componentDidMount() {
-    const query = parseQuery(this.props.location.search, this.props.site)
+    const include = this.showBounceRate() ? 'bounce_rate' : null
 
-    api.get(`/api/stats/${this.props.site.domain}/pages`, query, {limit: 100})
+    api.get(`/api/stats/${encodeURIComponent(this.props.site.domain)}/pages`, this.state.query, {limit: 100, include: include})
       .then((res) => this.setState({loading: false, pages: res}))
+  }
+
+  showBounceRate() {
+    return !this.state.query.filters.goal
+  }
+
+  formatBounceRate(page) {
+    if (typeof(page.bounce_rate) === 'number') {
+      return page.bounce_rate + '%'
+    } else {
+      return '-'
+    }
   }
 
   renderPage(page) {
     return (
-      <React.Fragment key={page.name}>
-        <div className="flex items-center justify-between my-2">
-          <span>{ page.name }</span>
-          <span>{numberFormatter(page.count)}</span>
-        </div>
-        <Bar count={page.count} all={this.state.pages} color="orange" />
-      </React.Fragment>
+      <tr className="text-sm" key={page.name}>
+        <td className="p-2 truncate">{page.name}</td>
+        <td className="p-2 w-32 font-medium" align="right">{numberFormatter(page.count)}</td>
+        {this.showBounceRate() && <td className="p-2 w-32 font-medium" align="right">{this.formatBounceRate(page)}</td> }
+      </tr>
     )
   }
 
   renderBody() {
     if (this.state.loading) {
       return (
-        <div className="loading my-32 mx-auto"><div></div></div>
+        <div className="loading mt-32 mx-auto"><div></div></div>
       )
     } else if (this.state.pages) {
       return (
         <React.Fragment>
-          <header className="modal__header">
-            <h1>Top pages</h1>
-          </header>
-          <div className="text-grey-darker text-lg ml-1 mt-1">by pageviews</div>
+          <h1 className="text-xl font-bold">Top pages</h1>
 
-          <div className="my-4 border-b border-grey-light"></div>
+          <div className="my-4 border-b border-gray-300"></div>
           <main className="modal__content">
-            <div className="mt-8">
-              { this.state.pages.map(this.renderPage.bind(this)) }
-            </div>
+            <table className="w-full table-striped table-fixed">
+              <thead>
+                <tr>
+                  <th className="p-2 text-xs tracking-wide font-bold text-gray-500" align="left">Page url</th>
+                  <th className="p-2 w-32 text-xs tracking-wide font-bold text-gray-500" align="right">Pageviews</th>
+                  {this.showBounceRate() && <th className="p-2 w-32 text-xs tracking-wide font-bold text-gray-500" align="right">Bounce rate</th>}
+                </tr>
+              </thead>
+              <tbody>
+                { this.state.pages.map(this.renderPage.bind(this)) }
+              </tbody>
+            </table>
           </main>
         </React.Fragment>
       )

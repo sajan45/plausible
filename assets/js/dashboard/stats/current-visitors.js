@@ -19,7 +19,7 @@ export default class CurrentVisitors extends React.Component {
   }
 
   updateCount() {
-    return fetch(`/api/stats/${this.props.site.domain}/current-visitors`)
+    return fetch(`/api/stats/${encodeURIComponent(this.props.site.domain)}/current-visitors`)
       .then(res => res.json())
       .then((res) => this.setState({currentVisitors: res}))
   }
@@ -27,11 +27,11 @@ export default class CurrentVisitors extends React.Component {
   render() {
     if (this.state.currentVisitors !== null) {
       return (
-        <div className="text-sm font-bold text-grey-darker mt-2 mt-0">
-          <svg className="w-2 mr-1 fill-current text-green" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <div className="text-sm font-bold text-gray-500 mt-1">
+          <svg className="w-2 mr-2 fill-current text-green-500 inline" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
             <circle cx="8" cy="8" r="8"/>
           </svg>
-          <span> {this.state.currentVisitors}</span> current visitors
+          {this.state.currentVisitors} current visitors
         </div>
       )
     } else {

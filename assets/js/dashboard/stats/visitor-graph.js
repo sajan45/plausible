@@ -1,9 +1,9 @@
 import React from 'react';
 import { withRouter } from 'react-router-dom'
 import Chart from 'chart.js'
+import FadeIn from '../fade-in'
 import { eventName } from '../query'
 import numberFormatter from '../number-formatter'
-import { isToday, shiftMonths, formatMonth } from '../date'
 import * as api from '../api'
 
 function mainSet(plot, present_index, ctx) {
@@ -222,55 +222,48 @@ class LineGraph extends React.Component {
     }
   }
 
-  comparisonTimeframe() {
-    const {query, site} = this.props
-
-    if (query.period === 'day') {
-      if (isToday(site, query.date)) {
-        return 'yesterday'
-      } else {
-        return 'previous day'
-      }
-    } else if (query.period === 'month') {
-      return formatMonth(shiftMonths(query.date, -1))
-    } else if (query.period === '7d') {
-      return 'last week'
-    } else if (query.period === '30d') {
-      return 'last month'
-    } else if (query.period === '3mo') {
-      return 'prev 3 months'
-    } else if (query.period === '6mo') {
-      return 'prev 6 months'
-    }
-  }
-
-  renderComparison(comparison) {
+  renderComparison(name, comparison) {
     const formattedComparison = numberFormatter(Math.abs(comparison))
 
     if (comparison > 0) {
-      return <span className="py-1 text-xs text-grey-darker"><span className="text-green-dark">&uarr;</span> {formattedComparison}% from {this.comparisonTimeframe()}</span>
+      const color = name === 'Bounce rate' ? 'text-red-400' : 'text-green-500'
+      return <span className="text-xs"><span className={color + ' font-bold'}>&uarr;</span> {formattedComparison}%</span>
     } else if (comparison < 0) {
-      return <span className="py-1 text-xs text-grey-darker"><span className="text-red-light">&darr;</span> {formattedComparison}% from {this.comparisonTimeframe()}</span>
+      const color = name === 'Bounce rate' ? 'text-green-500' : 'text-red-400'
+      return <span className="text-xs"><span className={color + ' font-bold'}>&darr;</span> {formattedComparison}%</span>
     } else if (comparison === 0) {
-      return <span className="py-1 text-xs text-grey-darker">&#12336; same as {this.comparisonTimeframe()}</span>
+      return <span className="text-xs text-gray-700">&#12336; N/A</span>
     }
   }
 
   renderTopStats() {
     const {graphData} = this.props
     return this.props.graphData.top_stats.map((stat, index) => {
-      const border = index > 0 ? 'border-l border-grey-light' : ''
+      let border = index > 0 ? 'lg:border-l border-gray-300' : ''
+      border = index % 2 === 0 ? border + ' border-r lg:border-r-0' : border
 
       return (
-        <div className={`pl-8 w-52 ${border}`} key={stat.name}>
-          <div className="text-grey-dark text-xs font-bold tracking-wide uppercase">{stat.name}</div>
-          <div className="my-1 flex items-end justify-between">
-            <b className="text-2xl">{ typeof(stat.count) == 'number' ? numberFormatter(stat.count) : stat.percentage + '%' }</b>
+        <div className={`px-8 w-1/2 my-4 lg:w-auto ${border}`} key={stat.name}>
+          <div className="text-gray-500 text-xs font-bold tracking-wide uppercase">{stat.name}</div>
+          <div className="my-1 flex justify-between items-center">
+            <b className="text-2xl mr-4">{ typeof(stat.count) == 'number' ? numberFormatter(stat.count) : stat.percentage + '%' }</b>
+            {this.renderComparison(stat.name, stat.change)}
           </div>
-          {this.renderComparison(stat.change)}
         </div>
       )
     })
+  }
+
+  downloadLink() {
+    const endpoint = `/${encodeURIComponent(this.props.site.domain)}/visitors.csv${api.serializeQuery(this.props.query)}`
+
+    return (
+      <a href={endpoint} download>
+        <svg className="w-4 h-5 absolute text-gray-700" style={{right: '2rem', top: '-2rem'}}>
+          <use xlinkHref="#feather-download" />
+        </svg>
+      </a>
+    )
   }
 
   render() {
@@ -278,10 +271,11 @@ class LineGraph extends React.Component {
 
     return (
       <React.Fragment>
-        <div className="border-b border-grey-light flex p-4">
+        <div className="flex flex-wrap">
           { this.renderTopStats() }
         </div>
-        <div className="p-4">
+        <div className="px-2 relative">
+          { this.downloadLink() }
           <canvas id="main-graph-canvas" className={'mt-4 ' + extraClass} width="1054" height="342"></canvas>
         </div>
       </React.Fragment>
@@ -309,7 +303,7 @@ export default class VisitorGraph extends React.Component {
   }
 
   fetchGraphData() {
-    api.get(`/api/stats/${this.props.site.domain}/main-graph`, this.props.query)
+    api.get(`/api/stats/${encodeURIComponent(this.props.site.domain)}/main-graph`, this.props.query)
       .then((res) => {
         this.setState({loading: false, graphData: res})
         return res
@@ -317,19 +311,20 @@ export default class VisitorGraph extends React.Component {
   }
 
   renderInner() {
-    if (this.state.loading) {
+    if (this.state.graphData) {
       return (
-        <div className="loading pt-24 sm:pt-32 md:pt-48 mx-auto"><div></div></div>
+        <LineGraph graphData={this.state.graphData} site={this.props.site} query={this.props.query} />
       )
-    } else if (this.state.graphData) {
-      return <LineGraph graphData={this.state.graphData} site={this.props.site} query={this.props.query} />
     }
   }
 
   render() {
     return (
-      <div className="w-full bg-white shadow-md rounded mt-6 main-graph">
-        { this.renderInner() }
+      <div className="w-full bg-white shadow-xl rounded mt-6 main-graph">
+        { this.state.loading && <div className="loading pt-24 sm:pt-32 md:pt-48 mx-auto"><div></div></div> }
+        <FadeIn show={!this.state.loading}>
+          { this.renderInner() }
+        </FadeIn>
       </div>
     )
   }

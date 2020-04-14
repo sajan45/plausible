@@ -9,17 +9,19 @@ defmodule PlausibleWeb.SiteView do
     name
   end
 
-  def snippet() do
-    """
-    <script>
-      (function (w,d,s,o,f,js,fjs) {
-      w[o] = w[o] || function () { (w[o].q = w[o].q || []).push(arguments) };
-      js = d.createElement(s), fjs = d.getElementsByTagName(s)[0];
-      js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);
-      }(window, document, 'script', 'plausible', 'https://plausible.io/js/p.js'));
+  def shared_link_dest(link) do
+    PlausibleWeb.Endpoint.url() <> "/share/" <> link.slug
+  end
 
-      plausible('page')
-    </script>\
+  def snippet(site) do
+    tracker = if site.custom_domain do
+      "https://" <> site.custom_domain.domain <> "/js/index.js"
+    else
+      "https://plausible.io/js/plausible.js"
+    end
+
+    """
+    <script async defer data-domain="#{site.domain}" src="#{tracker}"></script>
     """
   end
 end

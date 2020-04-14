@@ -39,7 +39,7 @@ class Modal extends React.Component {
   }
 
   close() {
-    this.props.history.push(`/${this.props.site.domain}${this.props.location.search}`)
+    this.props.history.push(`/${encodeURIComponent(this.props.site.domain)}${this.props.location.search}`)
   }
 
   render() {
@@ -50,6 +50,7 @@ class Modal extends React.Component {
           <div ref={this.node} className="modal__container">
             {this.props.children}
           </div>
+
         </div>
       </div>,
       document.getElementById("modal_root"),

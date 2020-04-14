@@ -79,13 +79,20 @@ config :plausible, Plausible.Repo,
   timeout: 10_000,
   ssl: true
 
-config :plausible, :amplitude,
-  api_key: System.get_env("AMPLITUDE_API_KEY")
-
 config :plausible, :google,
   client_id: System.get_env("GOOGLE_CLIENT_ID"),
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
 
+config :plausible, :slack,
+ webhook: System.get_env("SLACK_WEBHOOK")
+
 config :plausible, Plausible.Mailer,
   adapter: Bamboo.PostmarkAdapter,
   api_key: System.get_env("POSTMARK_API_KEY")
+
+config :plausible, :twitter, [
+   consumer_key: System.get_env("TWITTER_CONSUMER_KEY"),
+   consumer_secret: System.get_env("TWITTER_CONSUMER_SECRET"),
+   token: System.get_env("TWITTER_ACCESS_TOKEN"),
+   token_secret: System.get_env("TWITTER_ACCESS_TOKEN_SECRET")
+]

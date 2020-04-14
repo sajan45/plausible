@@ -63,6 +63,16 @@ defmodule PlausibleWeb.SiteControllerTest do
     end
   end
 
+  describe "GET /:website/snippet" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "shows snippet", %{conn: conn, site: site} do
+      conn = get(conn, "/#{site.domain}/snippet")
+
+      assert html_response(conn, 200) =~ "Add javascript snippet"
+    end
+  end
+
   describe "GET /:website/settings" do
     setup [:create_user, :log_in, :create_site]
 
@@ -124,8 +134,9 @@ defmodule PlausibleWeb.SiteControllerTest do
     setup [:create_user, :log_in, :create_site]
 
     test "deletes the site and all pageviews", %{conn: conn, user: user, site: site} do
-      pageview = insert(:pageview, hostname: site.domain)
+      pageview = insert(:pageview, domain: site.domain)
       insert(:google_auth, user: user, site: site)
+      insert(:custom_domain, site: site)
 
       delete(conn, "/#{site.domain}")
 
@@ -185,6 +196,199 @@ defmodule PlausibleWeb.SiteControllerTest do
       delete(conn, "/#{site.domain}/goals/#{goal.id}")
 
       assert Repo.aggregate(Plausible.Goal, :count, :id) == 0
+    end
+  end
+
+  describe "POST /sites/:website/weekly-report/enable" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "creates a weekly report record with the user email", %{conn: conn, site: site, user: user} do
+      post(conn, "/sites/#{site.domain}/weekly-report/enable")
+
+      report = Repo.get_by(Plausible.Site.WeeklyReport, site_id: site.id)
+      assert report.recipients == [user.email]
+    end
+  end
+
+  describe "POST /sites/:website/weekly-report/disable" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "deletes the weekly report record", %{conn: conn, site: site} do
+      insert(:weekly_report, site: site)
+
+      post(conn, "/sites/#{site.domain}/weekly-report/disable")
+
+      refute Repo.get_by(Plausible.Site.WeeklyReport, site_id: site.id)
+    end
+  end
+
+  describe "POST /sites/:website/weekly-report/recipients" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "adds a recipient to the weekly report", %{conn: conn, site: site} do
+      insert(:weekly_report, site: site)
+
+      post(conn, "/sites/#{site.domain}/weekly-report/recipients", recipient: "user@email.com")
+
+      report = Repo.get_by(Plausible.Site.WeeklyReport, site_id: site.id)
+      assert report.recipients == ["user@email.com"]
+    end
+  end
+
+  describe "DELETE /sites/:website/weekly-report/recipients/:recipient" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "removes a recipient from the weekly report", %{conn: conn, site: site} do
+      insert(:weekly_report, site: site, recipients: ["recipient@email.com"])
+
+      delete(conn, "/sites/#{site.domain}/weekly-report/recipients/recipient@email.com")
+
+      report = Repo.get_by(Plausible.Site.WeeklyReport, site_id: site.id)
+      assert report.recipients == []
+    end
+  end
+
+  describe "POST /sites/:website/monthly-report/enable" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "creates a monthly report record with the user email", %{conn: conn, site: site, user: user} do
+      post(conn, "/sites/#{site.domain}/monthly-report/enable")
+
+      report = Repo.get_by(Plausible.Site.MonthlyReport, site_id: site.id)
+      assert report.recipients == [user.email]
+    end
+  end
+
+  describe "POST /sites/:website/monthly-report/disable" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "deletes the monthly report record", %{conn: conn, site: site} do
+      insert(:monthly_report, site: site)
+
+      post(conn, "/sites/#{site.domain}/monthly-report/disable")
+
+      refute Repo.get_by(Plausible.Site.MonthlyReport, site_id: site.id)
+    end
+  end
+
+  describe "POST /sites/:website/monthly-report/recipients" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "adds a recipient to the monthly report", %{conn: conn, site: site} do
+      insert(:monthly_report, site: site)
+
+      post(conn, "/sites/#{site.domain}/monthly-report/recipients", recipient: "user@email.com")
+
+      report = Repo.get_by(Plausible.Site.MonthlyReport, site_id: site.id)
+      assert report.recipients == ["user@email.com"]
+    end
+  end
+
+  describe "DELETE /sites/:website/monthly-report/recipients/:recipient" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "removes a recipient from the monthly report", %{conn: conn, site: site} do
+      insert(:monthly_report, site: site, recipients: ["recipient@email.com"])
+
+      delete(conn, "/sites/#{site.domain}/monthly-report/recipients/recipient@email.com")
+
+      report = Repo.get_by(Plausible.Site.MonthlyReport, site_id: site.id)
+      assert report.recipients == []
+    end
+  end
+
+  describe "GET /sites/:website/shared-links/new" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "shows form for new shared link", %{conn: conn, site: site} do
+      conn = get(conn, "/sites/#{site.domain}/shared-links/new")
+
+      assert html_response(conn, 200) =~ "New shared link"
+    end
+  end
+
+  describe "POST /sites/:website/shared-links" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "creates shared link without password", %{conn: conn, site: site} do
+      post(conn, "/sites/#{site.domain}/shared-links", %{"shared_link" => %{}})
+
+      link = Repo.one(Plausible.Site.SharedLink)
+
+      refute is_nil(link.slug)
+      assert is_nil(link.password_hash)
+    end
+
+    test "creates shared link with password", %{conn: conn, site: site} do
+      post(conn, "/sites/#{site.domain}/shared-links", %{
+        "shared_link" => %{"password" => "password"}
+      })
+
+      link = Repo.one(Plausible.Site.SharedLink)
+
+      refute is_nil(link.slug)
+      refute is_nil(link.password_hash)
+    end
+  end
+
+  describe "DELETE /sites/:website/shared-links/:slug" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "shows form for new shared link", %{conn: conn, site: site} do
+      link = insert(:shared_link, site: site)
+
+      conn = delete(conn, "/sites/#{site.domain}/shared-links/#{link.slug}")
+
+      refute Repo.one(Plausible.Site.SharedLink)
+      assert redirected_to(conn, 302) =~ "/#{site.domain}/settings"
+    end
+  end
+
+  describe "GET /sites/:website/custom-domains/new" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "shows form for new custom domain", %{conn: conn, site: site} do
+      conn = get(conn, "/sites/#{site.domain}/custom-domains/new")
+
+      assert html_response(conn, 200) =~ "Setup custom domain"
+    end
+  end
+
+  describe "POST /sites/:website/custom-domains" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "creates a custom domain", %{conn: conn, site: site} do
+      conn = post(conn, "/sites/#{site.domain}/custom-domains", %{"custom_domain" => %{"domain" => "plausible.example.com"}})
+
+      domain = Repo.one(Plausible.Site.CustomDomain)
+
+      assert redirected_to(conn, 302) =~ "/sites/#{site.domain}/custom-domains/dns-setup"
+      assert domain.domain == "plausible.example.com"
+    end
+
+    test "validates presence of domain name", %{conn: conn, site: site} do
+      conn = post(conn, "/sites/#{site.domain}/custom-domains", %{"custom_domain" => %{"domain" => ""}})
+
+      refute Repo.one(Plausible.Site.CustomDomain)
+      assert html_response(conn, 200) =~ "Setup custom domain"
+    end
+
+    test "validates format of domain name", %{conn: conn, site: site} do
+      conn = post(conn, "/sites/#{site.domain}/custom-domains", %{"custom_domain" => %{"domain" => "ASD?/not-domain"}})
+
+      refute Repo.one(Plausible.Site.CustomDomain)
+      assert html_response(conn, 200) =~ "Setup custom domain"
+    end
+  end
+
+  describe "GET /sites/:website/custom-domains/dns-setup" do
+    setup [:create_user, :log_in, :create_site]
+
+    test "shows instructions to set up dns", %{conn: conn, site: site} do
+      domain = insert(:custom_domain, site: site)
+      conn = get(conn, "/sites/#{site.domain}/custom-domains/dns-setup")
+
+      assert html_response(conn, 200) =~ "DNS for #{domain.domain}"
     end
   end
 end

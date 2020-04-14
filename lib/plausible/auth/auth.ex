@@ -4,7 +4,7 @@ defmodule Plausible.Auth do
 
   def create_user(name, email) do
     %Auth.User{}
-    |> Auth.User.changeset(%{name: name, email: email})
+    |> Auth.User.new(%{name: name, email: email})
     |> Repo.insert
   end
 
@@ -17,7 +17,7 @@ defmodule Plausible.Auth do
       from(
         e in Plausible.Event,
         join: s in Plausible.Site,
-        on: s.domain == e.hostname,
+        on: s.domain == e.domain,
         join: sm in Plausible.Site.Membership,
         on: sm.site_id == s.id,
         join: u in Plausible.Auth.User,

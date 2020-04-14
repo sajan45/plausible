@@ -1,55 +1,82 @@
 import React from "react";
 import { Link, withRouter } from 'react-router-dom'
 
+import FadeIn from '../../fade-in'
 import Modal from './modal'
 import * as api from '../../api'
 import numberFormatter from '../../number-formatter'
-import Bar from '../bar'
 import {parseQuery} from '../../query'
 
 class ReferrersModal extends React.Component {
   constructor(props) {
     super(props)
-    this.state = {loading: true}
+    this.state = {
+      loading: true,
+      query: parseQuery(props.location.search, props.site)
+    }
   }
 
   componentDidMount() {
-    const query = parseQuery(this.props.location.search, this.props.site)
+    if (this.state.query.filters.goal) {
+      api.get(`/api/stats/${encodeURIComponent(this.props.site.domain)}/goal/referrers`, this.state.query, {limit: 100})
+        .then((res) => this.setState({loading: false, referrers: res}))
+    } else {
+      const include = this.showBounceRate() ? 'bounce_rate' : null
 
-    api.get(`/api/stats/${this.props.site.domain}/referrers`, query, {limit: 100})
-      .then((res) => this.setState({loading: false, referrers: res}))
+      api.get(`/api/stats/${encodeURIComponent(this.props.site.domain)}/referrers`, this.state.query, {limit: 100, include: include})
+        .then((res) => this.setState({loading: false, referrers: res}))
+    }
+  }
+
+  showBounceRate() {
+    return !this.state.query.filters.goal
+  }
+
+  formatBounceRate(page) {
+    if (typeof(page.bounce_rate) === 'number') {
+      return page.bounce_rate + '%'
+    } else {
+      return '-'
+    }
   }
 
   renderReferrer(referrer) {
     return (
-      <React.Fragment key={referrer.name}>
-        <div className="flex items-center justify-between my-2">
-          <Link className="hover:underline truncate" style={{maxWidth: '80%'}} to={`/${this.props.site.domain}/referrers/${referrer.name}${window.location.search}`}>{ referrer.name }</Link>
-          <span>{numberFormatter(referrer.count)}</span>
-        </div>
-        <Bar count={referrer.count} all={this.state.referrers} color="blue" />
-      </React.Fragment>
+      <tr className="text-sm" key={referrer.name}>
+        <td className="p-2">
+          <img src={`https://icons.duckduckgo.com/ip3/${referrer.url}.ico`} className="h-4 w-4 mr-2 align-middle inline" />
+          <Link className="hover:underline truncate" style={{maxWidth: '80%'}} to={`/${encodeURIComponent(this.props.site.domain)}/referrers/${referrer.name}${window.location.search}`}>{ referrer.name }</Link>
+        </td>
+        <td className="p-2 w-32 font-medium" align="right">{numberFormatter(referrer.count)}</td>
+        {this.showBounceRate() && <td className="p-2 w-32 font-medium" align="right">{this.formatBounceRate(referrer)}</td> }
+      </tr>
     )
   }
 
   renderBody() {
     if (this.state.loading) {
       return (
-        <div className="loading my-32 mx-auto"><div></div></div>
+        <div className="loading mt-32 mx-auto"><div></div></div>
       )
     } else if (this.state.referrers) {
       return (
         <React.Fragment>
-          <header className="modal__header">
-            <h1>Referrers</h1>
-          </header>
-          <div className="text-grey-darker text-lg ml-1 mt-1">by visitors</div>
+          <h1 className="text-xl font-bold">Top Referrers</h1>
 
-          <div className="my-4 border-b border-grey-light"></div>
+          <div className="my-4 border-b border-gray-300"></div>
           <main className="modal__content">
-            <div className="mt-8">
-              { this.state.referrers.map(this.renderReferrer.bind(this)) }
-            </div>
+            <table className="w-full table-striped table-fixed">
+              <thead>
+                <tr>
+                  <th className="p-2 text-xs tracking-wide font-bold text-gray-500" align="left">Referrer</th>
+                  <th className="p-2 w-32 text-xs tracking-wide font-bold text-gray-500" align="right">Visitors</th>
+                  {this.showBounceRate() && <th className="p-2 w-32 text-xs tracking-wide font-bold text-gray-500" align="right">Bounce rate</th>}
+                </tr>
+              </thead>
+              <tbody>
+                { this.state.referrers.map(this.renderReferrer.bind(this)) }
+              </tbody>
+            </table>
           </main>
         </React.Fragment>
       )

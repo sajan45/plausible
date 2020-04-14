@@ -8,16 +8,18 @@ defmodule PlausibleWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_flash
-    plug :protect_from_forgery
     plug :put_secure_browser_headers
-    plug :assign_device_id
     plug PlausibleWeb.SessionTimeoutPlug, timeout_after_seconds: @two_weeks_in_seconds
     plug PlausibleWeb.AuthPlug
     plug PlausibleWeb.LastSeenPlug
   end
 
+  pipeline :csrf do
+    plug :protect_from_forgery
+  end
+
   pipeline :api do
-    plug :accepts, ["application/json"]
+    plug :accepts, ["json"]
     plug :fetch_session
     plug PlausibleWeb.AuthPlug
   end
@@ -37,7 +39,9 @@ defmodule PlausibleWeb.Router do
     get "/:domain/current-visitors", StatsController, :current_visitors
     get "/:domain/main-graph", StatsController, :main_graph
     get "/:domain/referrers", StatsController, :referrers
+    get "/:domain/goal/referrers", StatsController, :referrers_for_goal
     get "/:domain/referrers/:referrer", StatsController, :referrer_drilldown
+    get "/:domain/goal/referrers/:referrer", StatsController, :referrer_drilldown_for_goal
     get "/:domain/pages", StatsController, :pages
     get "/:domain/countries", StatsController, :countries
     get "/:domain/browsers", StatsController, :browsers
@@ -50,6 +54,7 @@ defmodule PlausibleWeb.Router do
     pipe_through :api
 
     post "/event", Api.ExternalController, :event
+    post "/unload", Api.ExternalController, :unload
     get "/error", Api.ExternalController, :error
 
     post "/paddle/webhook", Api.PaddleController, :webhook
@@ -65,11 +70,15 @@ defmodule PlausibleWeb.Router do
     get "/claim-activation", AuthController, :claim_activation_link
     get "/login", AuthController, :login_form
     post "/login", AuthController, :login
-    get "/claim-login", AuthController, :claim_login_link
     get "/password/request-reset", AuthController, :password_reset_request_form
     post "/password/request-reset", AuthController, :password_reset_request
     get "/password/reset", AuthController, :password_reset_form
     post "/password/reset", AuthController, :password_reset
+  end
+
+  scope "/", PlausibleWeb do
+    pipe_through [:browser, :csrf]
+
     get "/password", AuthController, :password_form
     post "/password", AuthController, :set_password
     post "/logout", AuthController, :logout
@@ -93,16 +102,33 @@ defmodule PlausibleWeb.Router do
     get "/billing/upgrade", BillingController, :upgrade
     get "/billing/success", BillingController, :success
 
+    get "/sites", SiteController, :index
     get "/sites/new", SiteController, :new
     post "/sites", SiteController, :create_site
     post "/sites/:website/make-public", SiteController, :make_public
     post "/sites/:website/make-private", SiteController, :make_private
     post "/sites/:website/weekly-report/enable", SiteController, :enable_weekly_report
     post "/sites/:website/weekly-report/disable", SiteController, :disable_weekly_report
-    put "/sites/:website/weekly-report", SiteController, :update_weekly_settings
+    post "/sites/:website/weekly-report/recipients", SiteController, :add_weekly_report_recipient
+    delete "/sites/:website/weekly-report/recipients/:recipient", SiteController, :remove_weekly_report_recipient
     post "/sites/:website/monthly-report/enable", SiteController, :enable_monthly_report
     post "/sites/:website/monthly-report/disable", SiteController, :disable_monthly_report
-    put "/sites/:website/monthly-report", SiteController, :update_monthly_settings
+    post "/sites/:website/monthly-report/recipients", SiteController, :add_monthly_report_recipient
+    delete "/sites/:website/monthly-report/recipients/:recipient", SiteController, :remove_monthly_report_recipient
+
+    get "/sites/:website/shared-links/new", SiteController, :new_shared_link
+    post "/sites/:website/shared-links", SiteController, :create_shared_link
+    delete "/sites/:website/shared-links/:slug", SiteController, :delete_shared_link
+
+    get "/sites/:website/custom-domains/new", SiteController, :new_custom_domain
+    get "/sites/:website/custom-domains/dns-setup", SiteController, :custom_domain_dns_setup
+    get "/sites/:website/custom-domains/snippet", SiteController, :custom_domain_snippet
+    post "/sites/:website/custom-domains", SiteController, :add_custom_domain
+
+    get "/sites/:website/weekly-report/unsubscribe", UnsubscribeController, :weekly_report
+    get "/sites/:website/monthly-report/unsubscribe", UnsubscribeController, :monthly_report
+
+
     get "/:website/snippet", SiteController, :add_snippet
     get "/:website/settings", SiteController, :settings
     get "/:website/goals", SiteController, :goals
@@ -113,14 +139,9 @@ defmodule PlausibleWeb.Router do
     put "/:website/settings/google", SiteController, :update_google_auth
     delete "/:website", SiteController, :delete_site
 
-    get "/:website/*path", StatsController, :stats
-  end
-
-  def assign_device_id(conn, _opts) do
-    if is_nil(Plug.Conn.get_session(conn, :device_id)) do
-      Plug.Conn.put_session(conn, :device_id, UUID.uuid4())
-    else
-      conn
-    end
+    get "/share/:slug", StatsController, :shared_link
+    post "/share/:slug/authenticate", StatsController, :authenticate_shared_link
+    get "/:domain/visitors.csv", StatsController, :csv_export
+    get "/:domain/*path", StatsController, :stats
   end
 end

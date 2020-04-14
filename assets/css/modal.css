@@ -7,11 +7,20 @@
 }
 
 .modal[aria-hidden="false"] .modal__overlay {
-  animation: mmfadeIn .2s cubic-bezier(0.0, 0.0, 0.2, 1);
+  animation: mmfadeIn .2s ease-in;
 }
 
 .modal[aria-hidden="true"] .modal__overlay {
-  animation: mmfadeOut .2s cubic-bezier(0.0, 0.0, 0.2, 1);
+  animation: mmfadeOut .2s ease-in;
+}
+
+.modal-enter {
+  opacity: 0;
+}
+
+.modal-enter-active {
+  opacity: 1;
+  transition: opacity 100ms ease-in;
 }
 
 .modal__overlay {
@@ -34,12 +43,7 @@
   margin: 50px auto;
   box-sizing: border-box;
   min-height: 509px;
-}
-
-.modal__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  transition: height 200ms ease-in;
 }
 
 .modal__close {
@@ -54,9 +58,7 @@
 .modal__close:before { content: "\2715"; }
 
 .modal__content {
-  margin-top: 2rem;
   margin-bottom: 2rem;
-  line-height: 1.5;
 }
 
 @keyframes mmfadeIn {

@@ -1,5 +1,6 @@
 import React from 'react';
 
+import FadeIn from '../fade-in'
 import Bar from './bar'
 import MoreLink from './more-link'
 import numberFormatter from '../number-formatter'
@@ -26,43 +27,59 @@ export default class Pages extends React.Component {
   }
 
   fetchPages() {
-    api.get(`/api/stats/${this.props.site.domain}/pages`, this.props.query)
+    api.get(`/api/stats/${encodeURIComponent(this.props.site.domain)}/pages`, this.props.query)
       .then((res) => this.setState({loading: false, pages: res}))
   }
 
   renderPage(page) {
     return (
-      <React.Fragment key={page.name}>
-        <div className="flex items-center justify-between my-2">
-          <span className="truncate" style={{maxWidth: '80%'}}>{page.name}</span>
-          <span>{numberFormatter(page.count)}</span>
+      <div className="flex items-center justify-between my-1 text-sm" key={page.name}>
+        <div className="w-full h-8 truncate" style={{maxWidth: 'calc(100% - 4rem)'}}>
+          <Bar count={page.count} all={this.state.pages} bg="bg-orange-50" />
+          <span className="block px-2" style={{marginTop: '-26px'}}>{page.name}</span>
         </div>
-        <Bar count={page.count} all={this.state.pages} color="orange" />
-      </React.Fragment>
+        <span className="font-medium">{numberFormatter(page.count)}</span>
+      </div>
     )
   }
 
-  render() {
-    if (this.state.loading) {
+  renderList() {
+    if (this.state.pages.length > 0) {
       return (
-        <div className="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" style={{height: '405px'}}>
-          <div className="loading my-32 mx-auto"><div></div></div>
-        </div>
-      )
-    } else if (this.state.pages) {
-      return (
-        <div className="w-full md:w-31percent bg-white shadow-md rounded mt-4 p-4" style={{height: '405px'}}>
-          <div className="text-center">
-            <h2>Top Pages</h2>
-            <div className="text-grey-darker mt-1">by {eventName(this.props.query)}</div>
+        <React.Fragment>
+          <div className="flex items-center mt-3 mb-2 justify-between text-gray-500 text-xs font-bold tracking-wide">
+            <span>Page url</span>
+            <span>Pageviews</span>
           </div>
 
-          <div className="mt-8">
-            { this.state.pages.map(this.renderPage.bind(this)) }
-          </div>
+          { this.state.pages.map(this.renderPage.bind(this)) }
+        </React.Fragment>
+      )
+    } else {
+      return <div className="text-center mt-44 font-medium text-gray-500">No data yet</div>
+    }
+  }
+
+  renderContent() {
+    if (this.state.pages) {
+      return (
+        <React.Fragment>
+          <h3 className="font-bold">Top Pages</h3>
+          { this.renderList() }
           <MoreLink site={this.props.site} list={this.state.pages} endpoint="pages" />
-        </div>
+        </React.Fragment>
       )
     }
+  }
+
+  render() {
+    return (
+      <div className="stats-item bg-white shadow-xl rounded p-4" style={{height: '436px'}}>
+        { this.state.loading && <div className="loading mt-44 mx-auto"><div></div></div> }
+        <FadeIn show={!this.state.loading}>
+          { this.renderContent() }
+        </FadeIn>
+      </div>
+    )
   }
 }

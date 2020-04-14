@@ -9,7 +9,6 @@ defmodule PlausibleWeb.AuthController do
 
   def register_form(conn, _params) do
     changeset = Plausible.Auth.User.changeset(%Plausible.Auth.User{})
-    Plausible.Tracking.event(conn, "Register: View Form")
     render(conn, "register_form.html", changeset: changeset, layout: {PlausibleWeb.LayoutView, "focus.html"})
   end
 
@@ -23,7 +22,6 @@ defmodule PlausibleWeb.AuthController do
         Logger.info(url)
         email_template = PlausibleWeb.Email.activation_email(user, url)
         Plausible.Mailer.deliver_now(email_template)
-        Plausible.Tracking.event(conn, "Register: Submit Form")
         conn |> render("register_success.html", email: user.email, layout: {PlausibleWeb.LayoutView, "focus.html"})
       {:error, changeset} ->
         render(conn, "register_form.html", changeset: changeset, layout: {PlausibleWeb.LayoutView, "focus.html"})
@@ -35,10 +33,12 @@ defmodule PlausibleWeb.AuthController do
       {:ok, %{name: name, email: email}} ->
         case Auth.create_user(name, email) do
           {:ok, user} ->
-            Plausible.Tracking.event(conn, "Register: Activate Account")
-            Plausible.Tracking.identify(conn, user.id, %{name: user.name})
+            PlausibleWeb.Email.welcome_email(user)
+            |> Plausible.Mailer.deliver_now()
+
             conn
             |> put_session(:current_user_id, user.id)
+            |> put_resp_cookie("logged_in", "true", http_only: false)
             |> redirect(to: "/password")
           {:error, changeset} ->
             send_resp(conn, 400, inspect(changeset.errors))
@@ -95,6 +95,7 @@ defmodule PlausibleWeb.AuthController do
             |> put_flash(:login_title, "Password updated successfully")
             |> put_flash(:login_instructions, "Please log in with your new credentials")
             |> put_session(:current_user_id, nil)
+            |> delete_resp_cookie("logged_in")
             |> redirect(to: "/login")
           {:error, changeset} ->
             render(conn, "password_reset_form.html", changeset: changeset, token: token, layout: {PlausibleWeb.LayoutView, "focus.html"})
@@ -116,10 +117,11 @@ defmodule PlausibleWeb.AuthController do
 
     if user do
       if Password.match?(password, user.password_hash || "") do
-        login_dest = get_session(conn, :login_dest) || "/"
+        login_dest = get_session(conn, :login_dest) || "/sites"
 
         conn
         |> put_session(:current_user_id, user.id)
+        |> put_resp_cookie("logged_in", "true", http_only: false)
         |> put_session(:login_dest, nil)
         |> redirect(to: login_dest)
       else
@@ -168,8 +170,10 @@ defmodule PlausibleWeb.AuthController do
     end
   end
 
-  def delete_me(conn, _params) do
-    user = conn.assigns[:current_user] |> Repo.preload(:sites)
+  def delete_me(conn, params) do
+    user = conn.assigns[:current_user]
+           |> Repo.preload(:sites)
+           |> Repo.preload(:subscription)
 
     for site_membership <- user.site_memberships do
       Repo.delete!(site_membership)
@@ -179,16 +183,16 @@ defmodule PlausibleWeb.AuthController do
       Repo.delete!(site)
     end
 
+    Repo.delete!(user.subscription)
     Repo.delete!(user)
 
-    conn
-    |> configure_session(drop: true)
-    |> redirect(to: "/")
+    logout(conn, params)
   end
 
   def logout(conn, _params) do
     conn
     |> configure_session(drop: true)
+    |> delete_resp_cookie("logged_in")
     |> redirect(to: "/")
   end
 
@@ -209,6 +213,6 @@ defmodule PlausibleWeb.AuthController do
 
     site = Repo.get(Plausible.Site, site_id)
 
-    redirect(conn, to: "/#{site.domain}/settings#google-auth")
+    redirect(conn, to: "/#{URI.encode_www_form(site.domain)}/settings#google-auth")
   end
 end

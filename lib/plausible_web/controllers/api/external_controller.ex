@@ -6,14 +6,24 @@ defmodule PlausibleWeb.Api.ExternalController do
     params = parse_body(conn)
 
     case create_event(conn, params) do
-      {:ok, _event} ->
+      {:ok, nil} ->
+        conn |> send_resp(202, "")
+      {:ok, event} ->
+        Plausible.Ingest.FingerprintSession.on_event(event)
         conn |> send_resp(202, "")
       {:error, changeset} ->
         request = Sentry.Plug.build_request_interface_data(conn, [])
         Sentry.capture_message("Error processing event", extra: %{errors: inspect(changeset.errors), params: params, request: request})
-        Logger.error("Error processing event: #{inspect(changeset)}")
+        Logger.info("Error processing event: #{inspect(changeset)}")
         conn |> send_resp(400, "")
     end
+  end
+
+  def unload(conn, _params) do
+    params = parse_body(conn)
+    fingerprint = calculate_fingerprint(conn, params)
+    Plausible.Ingest.FingerprintSession.on_unload(fingerprint, Timex.now())
+    conn |> send_resp(202, "")
   end
 
   def error(conn, _params) do
@@ -23,8 +33,8 @@ defmodule PlausibleWeb.Api.ExternalController do
   end
 
   defp create_event(conn, params) do
-    uri = URI.parse(params["url"])
-    country_code = Plug.Conn.get_req_header(conn, "cf-ipcountry") |> List.first
+    uri = params["url"] && URI.parse(params["url"])
+    country_code = Plug.Conn.get_req_header(conn, "x-country") |> List.first
     user_agent = Plug.Conn.get_req_header(conn, "user-agent") |> List.first
     if UAInspector.bot?(user_agent) do
       {:ok, nil}
@@ -33,22 +43,24 @@ defmodule PlausibleWeb.Api.ExternalController do
         UAInspector.Parser.parse(user_agent)
       end
 
-      ref = params["referrer"]
-      ref = if ref && strip_www(URI.parse(ref).host) !== strip_www(uri.host) && URI.parse(ref).host !== "localhost" do
-        RefInspector.parse(ref)
-      end
+      ref = parse_referrer(uri, params["referrer"])
+      initial_ref = parse_referrer(uri, params["initial_referrer"])
 
       event_attrs = %{
         name: params["name"],
-        hostname: strip_www(uri.host),
-        pathname: uri.path,
+        hostname: strip_www(uri && uri.host),
+        domain: strip_www(params["domain"]) || strip_www(uri && uri.host),
+        pathname: uri && uri.path,
         new_visitor: params["new_visitor"],
         country_code: country_code,
         user_id: params["uid"],
+        fingerprint: calculate_fingerprint(conn, params),
         operating_system: ua && os_name(ua),
         browser: ua && browser_name(ua),
-        referrer_source: ref && referrer_source(uri, ref),
-        referrer: ref && clean_referrer(params["referrer"]),
+        referrer_source: params["source"] || referrer_source(ref),
+        referrer: clean_referrer(ref),
+        initial_referrer_source: params["initial_source"] || referrer_source(initial_ref),
+        initial_referrer: clean_referrer(initial_ref),
         screen_size: calculate_screen_size(params["screen_width"])
       }
 
@@ -57,20 +69,39 @@ defmodule PlausibleWeb.Api.ExternalController do
     end
   end
 
+  defp parse_referrer(_, nil), do: nil
+  defp parse_referrer(uri, referrer_str) do
+    referrer_uri = URI.parse(referrer_str)
+
+    if strip_www(referrer_uri.host) !== strip_www(uri.host) && referrer_uri.host !== "localhost" do
+      RefInspector.parse(referrer_str)
+    end
+  end
+
+  defp calculate_fingerprint(conn, params) do
+    user_agent = List.first(Plug.Conn.get_req_header(conn, "user-agent")) || ""
+    ip_address = List.first(Plug.Conn.get_req_header(conn, "x-bb-ip")) || "" # Netlify sets this header as the remote client IP
+    domain = strip_www(params["domain"]) || ""
+
+    :crypto.hash(:sha256, [user_agent, ip_address, domain])
+    |> Base.encode16
+    |> String.downcase
+  end
+
   defp calculate_screen_size(nil) , do: nil
   defp calculate_screen_size(width) when width < 576, do: "Mobile"
   defp calculate_screen_size(width) when width < 992, do: "Tablet"
   defp calculate_screen_size(width) when width < 1440, do: "Laptop"
   defp calculate_screen_size(width) when width >= 1440, do: "Desktop"
 
-  defp clean_referrer(referrer) do
-    uri = if referrer do
-      URI.parse(referrer)
-    end
+  defp clean_referrer(nil), do: nil
+  defp clean_referrer(ref) do
+    uri = URI.parse(ref.referer)
 
     if uri && uri.scheme in ["http", "https"] do
       host = String.replace_prefix(uri.host, "www.", "")
-      host <> (uri.path || "")
+      path = uri.path || ""
+      host <> String.trim_trailing(path, "/")
     end
   end
 
@@ -102,10 +133,11 @@ defmodule PlausibleWeb.Api.ExternalController do
     end
   end
 
-  defp referrer_source(uri, ref) do
+  defp referrer_source(nil), do: nil
+  defp referrer_source(ref) do
     case ref.source do
       :unknown ->
-        query_param_source(uri) || clean_uri(ref.referer)
+        clean_uri(ref.referer)
       source ->
         source
     end
@@ -117,17 +149,4 @@ defmodule PlausibleWeb.Api.ExternalController do
       String.replace_leading(uri.host, "www.", "")
     end
   end
-
-  @source_query_params ["ref", "utm_source", "source"]
-
-  defp query_param_source(uri) do
-    if uri && uri.query do
-      Enum.find_value(URI.query_decoder(uri.query), fn {key, val} ->
-        if Enum.member?(@source_query_params, key) do
-          val
-        end
-      end)
-    end
-  end
-
 end

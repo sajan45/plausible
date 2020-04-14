@@ -2,10 +2,6 @@ defmodule PlausibleWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :plausible
   use Sentry.Phoenix.Endpoint
 
-  socket "/socket", PlausibleWeb.UserSocket,
-    websocket: true,
-    longpoll: false
-
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
@@ -35,14 +31,12 @@ defmodule PlausibleWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
 
-  # The session will be stored in the cookie and signed,
-  # this means its contents can be read but not tampered with.
-  # Set :encryption_salt if you would also like to encrypt it.
   plug Plug.Session,
     store: :cookie,
     key: "_plausible_key",
     signing_salt: "3IL0ob4k",
-    max_age: 60*60*24*365*5 # 5 years, this is super long but the SlidingSessionTimeout will log people out if they don't return for 2 weeks
+    max_age: 60*60*24*365*5, # 5 years, this is super long but the SlidingSessionTimeout will log people out if they don't return for 2 weeks
+    extra: "SameSite=Lax"
 
 
   plug CORSPlug

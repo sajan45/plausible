@@ -3,7 +3,7 @@ defmodule PlausibleWeb.Api.StatsController do
   use Plausible.Repo
   alias Plausible.Stats
   alias Plausible.Stats.Query
-  plug :authorize
+  plug PlausibleWeb.AuthorizeStatsPlug
 
   def main_graph(conn, params) do
     site = conn.assigns[:site]
@@ -40,12 +40,17 @@ defmodule PlausibleWeb.Api.StatsController do
   end
 
   defp fetch_top_stats(site, query) do
+    prev_query = Query.shift_back(query)
     {pageviews, visitors} = Stats.pageviews_and_visitors(site, query)
-    {prev_pageviews, prev_visitors} = Stats.pageviews_and_visitors(site, Query.shift_back(query))
+    {prev_pageviews, prev_visitors} = Stats.pageviews_and_visitors(site, prev_query)
+    bounce_rate = Stats.bounce_rate(site, query)
+    prev_bounce_rate = Stats.bounce_rate(site, prev_query)
+    change_bounce_rate = if prev_bounce_rate > 0, do: bounce_rate - prev_bounce_rate
 
     [
       %{name: "Unique visitors", count: visitors, change: percent_change(prev_visitors, visitors)},
       %{name: "Total pageviews", count: pageviews, change: percent_change(prev_pageviews, pageviews)},
+      %{name: "Bounce rate", percentage: bounce_rate, change: change_bounce_rate},
     ]
   end
 
@@ -63,10 +68,17 @@ defmodule PlausibleWeb.Api.StatsController do
   def referrers(conn, params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
+    include = if params["include"], do: String.split(params["include"], ","), else: []
 
-    json(conn, Stats.top_referrers(site, query, params["limit"] || 5))
+    json(conn, Stats.top_referrers(site, query, params["limit"] || 9, include))
   end
 
+  def referrers_for_goal(conn, params) do
+    site = conn.assigns[:site]
+    query = Stats.Query.from(site.timezone, params)
+
+    json(conn, Stats.top_referrers_for_goal(site, query, params["limit"] || 9))
+  end
 
   @google_api Application.fetch_env!(:plausible, :google_api)
 
@@ -96,38 +108,49 @@ defmodule PlausibleWeb.Api.StatsController do
   def referrer_drilldown(conn, %{"referrer" => referrer} = params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
+    include = if params["include"], do: String.split(params["include"], ","), else: []
 
-    referrers = Stats.referrer_drilldown(site, query, referrer)
+    referrers = Stats.referrer_drilldown(site, query, referrer, include)
     total_visitors = Stats.visitors_from_referrer(site, query, referrer)
+    json(conn, %{referrers: referrers, total_visitors: total_visitors})
+  end
+
+  def referrer_drilldown_for_goal(conn, %{"referrer" => referrer} = params) do
+    site = conn.assigns[:site]
+    query = Stats.Query.from(site.timezone, params)
+
+    referrers = Stats.referrer_drilldown_for_goal(site, query, referrer)
+    total_visitors = Stats.conversions_from_referrer(site, query, referrer)
     json(conn, %{referrers: referrers, total_visitors: total_visitors})
   end
 
   def pages(conn, params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
+    include = if params["include"], do: String.split(params["include"], ","), else: []
 
-    json(conn, Stats.top_pages(site, query, params["limit"] || 5))
+    json(conn, Stats.top_pages(site, query, params["limit"] || 9, include))
   end
 
   def countries(conn, params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
 
-    json(conn, Stats.countries(site, query, parse_integer(params["limit"]) || 5))
+    json(conn, Stats.countries(site, query))
   end
 
   def browsers(conn, params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
 
-    json(conn, Stats.browsers(site, query, parse_integer(params["limit"]) || 5))
+    json(conn, Stats.browsers(site, query, parse_integer(params["limit"]) || 9))
   end
 
   def operating_systems(conn, params) do
     site = conn.assigns[:site]
     query = Stats.Query.from(site.timezone, params)
 
-    json(conn, Stats.operating_systems(site, query, parse_integer(params["limit"]) || 5))
+    json(conn, Stats.operating_systems(site, query, parse_integer(params["limit"]) || 9))
   end
 
   def screen_sizes(conn, params) do
@@ -154,53 +177,6 @@ defmodule PlausibleWeb.Api.StatsController do
     case Integer.parse(nr) do
       {number, ""} -> number
       _ -> nil
-    end
-  end
-
-  @doc """
-    When the stats dashboard is loaded we make > 8 API calls. Instead of hitting the DB to authorize each
-    request we 'memoize' the fact that the current user has access to the site stats. It is invalidated
-    every 30 minutes and we hit the DB again to make sure their access hasn't been revoked.
-  """
-  def authorize(conn, _opts) do
-    site_session_key = "authorized_site__" <> conn.params["domain"]
-    user_id = get_session(conn, :current_user_id)
-
-    case get_session(conn, site_session_key) do
-      nil ->
-        verify_access_via_db(conn, user_id, site_session_key)
-      site_session ->
-        if site_session[:valid_until] > DateTime.to_unix(Timex.now()) do
-          assign(conn, :site, %Plausible.Site{
-            id: site_session[:id],
-            domain: site_session[:domain],
-            timezone: site_session[:timezone]
-          })
-        else
-          verify_access_via_db(conn, user_id, site_session_key)
-        end
-    end
-  end
-
-  defp verify_access_via_db(conn, user_id, site_session_key) do
-    site = Repo.get_by(Plausible.Site, domain: conn.params["domain"])
-
-    if !site do
-      send_resp(conn, 401, "") |> halt
-    else
-      can_access = site.public || (user_id && Plausible.Sites.is_owner?(user_id, site))
-
-      if !can_access do
-        send_resp(conn, 401, "") |> halt
-      else
-        put_session(conn, site_session_key, %{
-          id: site.id,
-          domain: site.domain,
-          timezone: site.timezone,
-          valid_until: Timex.now() |> Timex.shift(minutes: 30) |> DateTime.to_unix()
-        })
-        |> assign(:site, site)
-      end
     end
   end
 end
